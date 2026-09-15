@@ -1,0 +1,298 @@
+-- =====================================================================
+-- PROYECTO II - DESARROLLO WEB
+-- Sistema de Gestión de Taller Mecánico - API REST (MySQL / MariaDB)
+-- =====================================================================
+
+CREATE DATABASE IF NOT EXISTS proyecto_2_desarrollo_web;
+USE proyecto_2_desarrollo_web;
+
+-- Limpieza de tablas previas (ordenadas por dependencias)
+DROP TABLE IF EXISTS detalle_factura;
+DROP TABLE IF EXISTS facturas;
+DROP TABLE IF EXISTS uso_repuestos;
+DROP TABLE IF EXISTS movimientos_inventario;
+DROP TABLE IF EXISTS repuestos;
+DROP TABLE IF EXISTS categorias_repuesto;
+DROP TABLE IF EXISTS dependencias_accion;
+DROP TABLE IF EXISTS acciones_reparacion;
+DROP TABLE IF EXISTS estados_accion;
+DROP TABLE IF EXISTS diagnosticos;
+DROP TABLE IF EXISTS ordenes_trabajo;
+DROP TABLE IF EXISTS estados_orden;
+DROP TABLE IF EXISTS mecanicos;
+DROP TABLE IF EXISTS vehiculos;
+DROP TABLE IF EXISTS clientes;
+DROP TABLE IF EXISTS tokens_sesion;
+DROP TABLE IF EXISTS usuarios_permisos;
+DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS roles_permisos;
+DROP TABLE IF EXISTS permisos;
+DROP TABLE IF EXISTS roles;
+
+-- =====================================================================
+-- MÓDULO 1: SEGURIDAD, USUARIOS, ROLES Y PERMISOS
+-- =====================================================================
+
+CREATE TABLE roles (
+    id_rol        INT AUTO_INCREMENT PRIMARY KEY,
+    nombre        VARCHAR(50)  NOT NULL UNIQUE,
+    descripcion   VARCHAR(255)
+) ENGINE=InnoDB;
+
+CREATE TABLE permisos (
+    id_permiso    INT AUTO_INCREMENT PRIMARY KEY,
+    codigo        VARCHAR(60)  NOT NULL UNIQUE,
+    nombre        VARCHAR(100) NOT NULL,
+    descripcion   VARCHAR(255)
+) ENGINE=InnoDB;
+
+CREATE TABLE roles_permisos (
+    id_rol        INT NOT NULL,
+    id_permiso    INT NOT NULL,
+    PRIMARY KEY (id_rol, id_permiso),
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol) ON DELETE CASCADE,
+    FOREIGN KEY (id_permiso) REFERENCES permisos(id_permiso) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE usuarios (
+    id_usuario      INT AUTO_INCREMENT PRIMARY KEY,
+    id_rol          INT NOT NULL,
+    nombre          VARCHAR(80)  NOT NULL,
+    apellido        VARCHAR(80)  NOT NULL,
+    email           VARCHAR(120) NOT NULL UNIQUE,
+    password_hash   VARCHAR(255) NOT NULL,
+    activo          BOOLEAN      NOT NULL DEFAULT TRUE,
+    fecha_creacion  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+) ENGINE=InnoDB;
+
+CREATE TABLE usuarios_permisos (
+    id_usuario   INT NOT NULL,
+    id_permiso   INT NOT NULL,
+    tipo         VARCHAR(10) NOT NULL CHECK (tipo IN ('conceder','denegar')),
+    PRIMARY KEY (id_usuario, id_permiso),
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
+    FOREIGN KEY (id_permiso) REFERENCES permisos(id_permiso) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE tokens_sesion (
+    id_token          INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario        INT NOT NULL,
+    token             VARCHAR(500) NOT NULL,
+    fecha_emision     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_expiracion  DATETIME NOT NULL,
+    revocado          BOOLEAN NOT NULL DEFAULT FALSE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- MÓDULO 2: CLIENTES, VEHÍCULOS Y MECÁNICOS
+-- =====================================================================
+
+CREATE TABLE clientes (
+    id_cliente   INT AUTO_INCREMENT PRIMARY KEY,
+    nombre       VARCHAR(80) NOT NULL,
+    apellido     VARCHAR(80) NOT NULL,
+    telefono     VARCHAR(20),
+    email        VARCHAR(120),
+    direccion    VARCHAR(255)
+) ENGINE=InnoDB;
+
+CREATE TABLE vehiculos (
+    id_vehiculo  INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente   INT NOT NULL,
+    placa        VARCHAR(15) NOT NULL UNIQUE,
+    marca        VARCHAR(50) NOT NULL,
+    modelo       VARCHAR(50) NOT NULL,
+    anio         INT,
+    color        VARCHAR(30),
+    vin          VARCHAR(50),
+    FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
+) ENGINE=InnoDB;
+
+CREATE TABLE mecanicos (
+    id_mecanico  INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario   INT NOT NULL UNIQUE,
+    especialidad VARCHAR(100),
+    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- MÓDULO 3: RECEPCIÓN Y DIAGNÓSTICO
+-- =====================================================================
+
+CREATE TABLE estados_orden (
+    id_estado  INT AUTO_INCREMENT PRIMARY KEY,
+    nombre     VARCHAR(30) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE ordenes_trabajo (
+    id_orden             INT AUTO_INCREMENT PRIMARY KEY,
+    id_vehiculo          INT NOT NULL,
+    id_mecanico          INT NULL,
+    id_estado            INT NOT NULL,
+    kilometraje_ingreso INT,
+    fecha_ingreso        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_salida         DATETIME NULL,
+    observaciones        VARCHAR(500),
+    FOREIGN KEY (id_vehiculo) REFERENCES vehiculos(id_vehiculo),
+    FOREIGN KEY (id_mecanico) REFERENCES mecanicos(id_mecanico),
+    FOREIGN KEY (id_estado) REFERENCES estados_orden(id_estado)
+) ENGINE=InnoDB;
+
+CREATE TABLE diagnosticos (
+    id_diagnostico     INT AUTO_INCREMENT PRIMARY KEY,
+    id_orden           INT NOT NULL,
+    id_mecanico        INT NOT NULL,
+    descripcion        VARCHAR(500) NOT NULL,
+    gravedad           VARCHAR(20) CHECK (gravedad IN ('leve','moderada','grave','critica')),
+    fecha_diagnostico  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_orden) REFERENCES ordenes_trabajo(id_orden) ON DELETE CASCADE,
+    FOREIGN KEY (id_mecanico) REFERENCES mecanicos(id_mecanico)
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- MÓDULO 4: ACCIONES DE REPARACIÓN
+-- =====================================================================
+
+CREATE TABLE estados_accion (
+    id_estado  INT AUTO_INCREMENT PRIMARY KEY,
+    nombre     VARCHAR(30) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE acciones_reparacion (
+    id_accion            INT AUTO_INCREMENT PRIMARY KEY,
+    id_diagnostico       INT NOT NULL,
+    descripcion          VARCHAR(500) NOT NULL,
+    id_estado            INT NOT NULL,
+    id_usuario_autoriza  INT NULL,
+    fecha_autorizacion   DATETIME NULL,
+    orden_ejecucion      INT NOT NULL DEFAULT 1,
+    costo_mano_obra      DECIMAL(10,2) DEFAULT 0,
+    fecha_creacion       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_finalizacion   DATETIME NULL,
+    FOREIGN KEY (id_diagnostico) REFERENCES diagnosticos(id_diagnostico) ON DELETE CASCADE,
+    FOREIGN KEY (id_estado) REFERENCES estados_accion(id_estado),
+    FOREIGN KEY (id_usuario_autoriza) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB;
+
+CREATE TABLE dependencias_accion (
+    id_accion               INT NOT NULL,
+    id_accion_prerequisito INT NOT NULL,
+    PRIMARY KEY (id_accion, id_accion_prerequisito),
+    FOREIGN KEY (id_accion) REFERENCES acciones_reparacion(id_accion) ON DELETE CASCADE,
+    FOREIGN KEY (id_accion_prerequisito) REFERENCES acciones_reparacion(id_accion) ON DELETE CASCADE,
+    CHECK (id_accion <> id_accion_prerequisito)
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- MÓDULO 5: BODEGA Y REPUESTOS
+-- =====================================================================
+
+CREATE TABLE categorias_repuesto (
+    id_categoria  INT AUTO_INCREMENT PRIMARY KEY,
+    nombre        VARCHAR(60) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE repuestos (
+    id_repuesto     INT AUTO_INCREMENT PRIMARY KEY,
+    id_categoria    INT NULL,
+    codigo          VARCHAR(30) NOT NULL UNIQUE,
+    nombre          VARCHAR(100) NOT NULL,
+    descripcion     VARCHAR(255),
+    stock_actual    INT NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
+    stock_minimo    INT NOT NULL DEFAULT 0,
+    precio_unitario DECIMAL(10,2) NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_categoria) REFERENCES categorias_repuesto(id_categoria)
+) ENGINE=InnoDB;
+
+CREATE TABLE movimientos_inventario (
+    id_movimiento  INT AUTO_INCREMENT PRIMARY KEY,
+    id_repuesto    INT NOT NULL,
+    id_usuario     INT NOT NULL,
+    tipo           VARCHAR(10) NOT NULL CHECK (tipo IN ('entrada','salida')),
+    cantidad       INT NOT NULL CHECK (cantidad > 0),
+    motivo         VARCHAR(255),
+    fecha          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_repuesto) REFERENCES repuestos(id_repuesto),
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB;
+
+CREATE TABLE uso_repuestos (
+    id_uso               INT AUTO_INCREMENT PRIMARY KEY,
+    id_accion            INT NOT NULL,
+    id_repuesto          INT NOT NULL,
+    cantidad             INT NOT NULL CHECK (cantidad > 0),
+    precio_unitario      DECIMAL(10,2) NOT NULL DEFAULT 0,
+    justificacion        VARCHAR(255) NOT NULL,
+    id_usuario_autoriza  INT NOT NULL,
+    fecha                DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_accion) REFERENCES acciones_reparacion(id_accion) ON DELETE CASCADE,
+    FOREIGN KEY (id_repuesto) REFERENCES repuestos(id_repuesto),
+    FOREIGN KEY (id_usuario_autoriza) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- MÓDULO 6: FACTURACIÓN
+-- =====================================================================
+
+CREATE TABLE facturas (
+    id_factura           INT AUTO_INCREMENT PRIMARY KEY,
+    id_orden             INT NOT NULL UNIQUE,
+    subtotal_mano_obra   DECIMAL(10,2) NOT NULL DEFAULT 0,
+    subtotal_repuestos   DECIMAL(10,2) NOT NULL DEFAULT 0,
+    impuestos            DECIMAL(10,2) NOT NULL DEFAULT 0,
+    total                DECIMAL(10,2) NOT NULL DEFAULT 0,
+    estado_pago          VARCHAR(20) NOT NULL DEFAULT 'pendiente' CHECK (estado_pago IN ('pendiente','pagada','anulada')),
+    fecha_emision        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_orden) REFERENCES ordenes_trabajo(id_orden)
+) ENGINE=InnoDB;
+
+CREATE TABLE detalle_factura (
+    id_detalle       INT AUTO_INCREMENT PRIMARY KEY,
+    id_factura       INT NOT NULL,
+    tipo             VARCHAR(15) NOT NULL CHECK (tipo IN ('mano_obra','repuesto')),
+    descripcion      VARCHAR(255) NOT NULL,
+    cantidad         INT NOT NULL DEFAULT 1,
+    precio_unitario  DECIMAL(10,2) NOT NULL,
+    subtotal         DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (id_factura) REFERENCES facturas(id_factura) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- =====================================================================
+-- ÍNDICES RECOMENDADOS
+-- =====================================================================
+
+CREATE INDEX idx_vehiculos_cliente     ON vehiculos(id_cliente);
+CREATE INDEX idx_ordenes_vehiculo      ON ordenes_trabajo(id_vehiculo);
+CREATE INDEX idx_ordenes_mecanico      ON ordenes_trabajo(id_mecanico);
+CREATE INDEX idx_diagnosticos_orden    ON diagnosticos(id_orden);
+CREATE INDEX idx_acciones_diagnostico  ON acciones_reparacion(id_diagnostico);
+CREATE INDEX idx_uso_repuestos_accion  ON uso_repuestos(id_accion);
+CREATE INDEX idx_movimientos_repuesto ON movimientos_inventario(id_repuesto);
+CREATE INDEX idx_facturas_orden        ON facturas(id_orden);
+
+-- =====================================================================
+-- DATOS SEMILLA BASE
+-- =====================================================================
+
+INSERT INTO roles (nombre, descripcion) VALUES
+('Administrador', 'Control total del sistema'),
+('Recepcionista', 'Registra clientes, vehículos y órdenes de trabajo'),
+('Mecanico', 'Diagnostica vehículos y ejecuta reparaciones'),
+('Bodeguero', 'Controla el inventario de repuestos');
+
+INSERT INTO permisos (codigo, nombre) VALUES
+('CREAR_ORDEN', 'Crear orden de trabajo'),
+('CREAR_DIAGNOSTICO', 'Registrar diagnóstico'),
+('AUTORIZAR_REPARACION', 'Autorizar una acción de reparación'),
+('ENTREGAR_REPUESTO', 'Entregar repuesto de bodega'),
+('GENERAR_FACTURA', 'Generar factura'),
+('GESTIONAR_USUARIOS', 'Crear y administrar usuarios y roles');
+
+INSERT INTO estados_orden (nombre) VALUES
+('Recibido'), ('En diagnóstico'), ('En reparación'), ('Finalizado'), ('Entregado'), ('Cancelado');
+
+INSERT INTO estados_accion (nombre) VALUES
+('Pendiente'), ('Autorizada'), ('Rechazada'), ('En proceso'), ('Completada'), ('Cancelada');
