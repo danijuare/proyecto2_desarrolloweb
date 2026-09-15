@@ -7,7 +7,7 @@ using proyecto_2_desarrollo_web.Models;
 
 namespace proyecto_2_desarrollo_web.Controllers
 {
-    //[Authorize] // Requiere token Bearer JWT
+    //[Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class RolesController : ControllerBase
