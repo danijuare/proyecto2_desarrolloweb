@@ -33,6 +33,10 @@ public partial class Cliente
     [StringLength(255)]
     public string? Direccion { get; set; }
 
+    [Column("condicion")]
+    [StringLength(10)]
+    public string? Condicion { get; set; }
+
     [InverseProperty("IdClienteNavigation")]
     public virtual ICollection<Vehiculo> Vehiculos { get; set; } = new List<Vehiculo>();
 }

@@ -29,6 +29,9 @@ public partial class Permiso
     [InverseProperty("IdPermisoNavigation")]
     public virtual ICollection<UsuariosPermiso> UsuariosPermisos { get; set; } = new List<UsuariosPermiso>();
 
+    [Column("condicion")]
+    public sbyte? Condicion { get; set; } = 1;
+
     [ForeignKey("IdPermiso")]
     [InverseProperty("IdPermisos")]
     public virtual ICollection<Role> IdRols { get; set; } = new List<Role>();

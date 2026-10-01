@@ -55,6 +55,8 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<Vehiculo> Vehiculos { get; set; }
 
+    public virtual DbSet<DependenciasAccion> DependenciasAccions { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseMySql("server=localhost;database=proyecto_2_desarrollo_web;user=root", Microsoft.EntityFrameworkCore.ServerVersion.Parse("10.4.11-mariadb"));
@@ -80,54 +82,28 @@ public partial class ApplicationDbContext : DbContext
                 .HasConstraintName("acciones_reparacion_ibfk_2");
 
             entity.HasOne(d => d.IdUsuarioAutorizaNavigation).WithMany(p => p.AccionesReparacions).HasConstraintName("acciones_reparacion_ibfk_3");
+        });
 
-            entity.HasMany(d => d.IdAccionPrerequisitos).WithMany(p => p.IdAccions)
-                .UsingEntity<Dictionary<string, object>>(
-                    "DependenciasAccion",
-                    r => r.HasOne<AccionesReparacion>().WithMany()
-                        .HasForeignKey("IdAccionPrerequisito")
-                        .HasConstraintName("dependencias_accion_ibfk_2"),
-                    l => l.HasOne<AccionesReparacion>().WithMany()
-                        .HasForeignKey("IdAccion")
-                        .HasConstraintName("dependencias_accion_ibfk_1"),
-                    j =>
-                    {
-                        j.HasKey("IdAccion", "IdAccionPrerequisito")
-                            .HasName("PRIMARY")
-                            .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
-                        j.ToTable("dependencias_accion");
-                        j.HasIndex(new[] { "IdAccionPrerequisito" }, "id_accion_prerequisito");
-                        j.IndexerProperty<int>("IdAccion")
-                            .HasColumnType("int(11)")
-                            .HasColumnName("id_accion");
-                        j.IndexerProperty<int>("IdAccionPrerequisito")
-                            .HasColumnType("int(11)")
-                            .HasColumnName("id_accion_prerequisito");
-                    });
+        modelBuilder.Entity<DependenciasAccion>(entity =>
+        {
+            entity.ToTable("dependencias_accion");
 
-            entity.HasMany(d => d.IdAccions).WithMany(p => p.IdAccionPrerequisitos)
-                .UsingEntity<Dictionary<string, object>>(
-                    "DependenciasAccion",
-                    r => r.HasOne<AccionesReparacion>().WithMany()
-                        .HasForeignKey("IdAccion")
-                        .HasConstraintName("dependencias_accion_ibfk_1"),
-                    l => l.HasOne<AccionesReparacion>().WithMany()
-                        .HasForeignKey("IdAccionPrerequisito")
-                        .HasConstraintName("dependencias_accion_ibfk_2"),
-                    j =>
-                    {
-                        j.HasKey("IdAccion", "IdAccionPrerequisito")
-                            .HasName("PRIMARY")
-                            .HasAnnotation("MySql:IndexPrefixLength", new[] { 0, 0 });
-                        j.ToTable("dependencias_accion");
-                        j.HasIndex(new[] { "IdAccionPrerequisito" }, "id_accion_prerequisito");
-                        j.IndexerProperty<int>("IdAccion")
-                            .HasColumnType("int(11)")
-                            .HasColumnName("id_accion");
-                        j.IndexerProperty<int>("IdAccionPrerequisito")
-                            .HasColumnType("int(11)")
-                            .HasColumnName("id_accion_prerequisito");
-                    });
+            entity.HasKey(e => new { e.IdAccion, e.IdAccionPrerequisito }).HasName("PRIMARY");
+
+            entity.Property(e => e.IdAccion).HasColumnName("id_accion");
+            entity.Property(e => e.IdAccionPrerequisito).HasColumnName("id_accion_prerequisito");
+
+            entity.HasOne(d => d.IdAccionNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdAccion)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("dependencias_accion_ibfk_1");
+
+            entity.HasOne(d => d.IdAccionPrerequisitoNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdAccionPrerequisito)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("dependencias_accion_ibfk_2");
         });
 
         modelBuilder.Entity<CategoriasRepuesto>(entity =>
