@@ -12,5 +12,8 @@
         public string Usuario { get; set; } = string.Empty;
         public string Rol { get; set; } = string.Empty;
         public DateTime Expiracion { get; set; }
+
+        //listado de permisos
+        public List<string> Permisos { get; set; } = new List<string>();
     }
 }

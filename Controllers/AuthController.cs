@@ -25,16 +25,30 @@ namespace proyecto_2_desarrollo_web.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto request)
         {
-            // Busca al usuario en la BD (ajusta la propiedad 'Email' o 'Password' si en tus modelos se llaman distinto)
+            // Cargar el usuario, su Rol y los Permisos asociados al Rol
             var usuario = await _context.Usuarios
                 .Include(u => u.IdRolNavigation)
+                    .ThenInclude(r => r.IdPermisos)
                 .FirstOrDefaultAsync(u => u.Email == request.Email);
 
-            // Validar existencia y contraseña
             if (usuario == null || usuario.PasswordHash != request.Password)
             {
                 return Unauthorized(new { mensaje = "Credenciales incorrectas" });
             }
+
+            // 1. Obtener nombres de permisos heredados del Rol
+            var permisosRol = usuario.IdRolNavigation?.IdPermisos
+                .Select(p => p.Nombre)
+                .ToList() ?? new List<string>();
+
+            // 2. Obtener nombres de permisos asignados directamente al usuario
+            var permisosDirectos = await _context.UsuariosPermisos
+                .Where(up => up.IdUsuario == usuario.IdUsuario)
+                .Select(up => up.IdPermisoNavigation.Nombre)
+                .ToListAsync();
+
+            // 3. Unir ambos listados sin duplicados
+            var listaPermisos = permisosRol.Union(permisosDirectos).Distinct().ToList();
 
             // Generar claims para el JWT
             var claims = new[]
@@ -58,12 +72,14 @@ namespace proyecto_2_desarrollo_web.Controllers
                 signingCredentials: creds
             );
 
+            // Retornar la respuesta con la lista de permisos/módulos
             return Ok(new AuthResponseDto
             {
                 Token = new JwtSecurityTokenHandler().WriteToken(token),
                 Usuario = usuario.Nombre ?? string.Empty,
                 Rol = usuario.IdRolNavigation?.Nombre ?? "Sin Rol",
-                Expiracion = expiracion
+                Expiracion = expiracion,
+                Permisos = listaPermisos
             });
         }
     }
