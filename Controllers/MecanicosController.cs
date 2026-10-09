@@ -24,7 +24,6 @@ namespace proyecto_2_desarrollo_web.Controllers
         {
             var mecanicos = await _context.Mecanicos
                 .Include(m => m.IdUsuarioNavigation)
-                .Where(m => m.Activo == true)
                 .Select(m => new MecanicoResponseDto
                 {
                     id_mecanico = m.IdMecanico,
@@ -68,39 +67,54 @@ namespace proyecto_2_desarrollo_web.Controllers
 
         // 3. CREAR
         // POST: api/Mecanicos
+        // POST: api/Mecanicos
         [HttpPost]
         public async Task<ActionResult<MecanicoResponseDto>> CreateMecanico([FromBody] MecanicoCreateDto dto)
         {
-            // Validar que el usuario exista y esté activo
+            // 1. Validar que el usuario exista y esté activo en la tabla Usuarios
             var usuario = await _context.Usuarios.FindAsync(dto.id_usuario);
-            if (usuario == null || usuario.Activo == false)
+            if (usuario == null || usuario.Activo != true)
             {
                 return BadRequest(new { mensaje = "El usuario especificado no existe o está inactivo." });
             }
 
-            // Validar restricción UNIQUE: un usuario solo puede ser asignado a un mecánico
-            var usuarioExisteEnMecanicos = await _context.Mecanicos
-                .AnyAsync(m => m.IdUsuario == dto.id_usuario);
+            // 2. Buscar si el usuario ya existe en la tabla Mecanicos (sea activo o inactivo)
+            var mecanicoExistente = await _context.Mecanicos
+                .FirstOrDefaultAsync(m => m.IdUsuario == dto.id_usuario);
 
-            if (usuarioExisteEnMecanicos)
+            if (mecanicoExistente != null)
             {
-                return BadRequest(new { mensaje = "El usuario especificado ya está registrado como mecánico." });
+                // Si ya está activo (evaluación segura de bool?), bloqueamos duplicado
+                if (mecanicoExistente.Activo == true)
+                {
+                    return BadRequest(new { mensaje = "El usuario ya está registrado como un mecánico activo." });
+                }
+
+                // Si existe pero estaba INACTIVO (estado 0), lo reactivamos
+                mecanicoExistente.Activo = true;
+                mecanicoExistente.Especialidad = dto.especialidad?.Trim();
+
+                _context.Mecanicos.Update(mecanicoExistente);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { mensaje = "Mecánico reactivado correctamente.", id_mecanico = mecanicoExistente.IdMecanico });
             }
 
-            var mecanico = new Mecanico
+            // 3. Si no existía previa asignación, se crea un nuevo registro
+            var nuevoMecanico = new Mecanico
             {
                 IdUsuario = dto.id_usuario,
                 Especialidad = dto.especialidad?.Trim(),
                 Activo = true
             };
 
-            _context.Mecanicos.Add(mecanico);
+            _context.Mecanicos.Add(nuevoMecanico);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
                 nameof(GetMecanico),
-                new { id = mecanico.IdMecanico },
-                new { mensaje = "Mecánico registrado correctamente.", id_mecanico = mecanico.IdMecanico }
+                new { id = nuevoMecanico.IdMecanico },
+                new { mensaje = "Mecánico registrado correctamente.", id_mecanico = nuevoMecanico.IdMecanico }
             );
         }
 

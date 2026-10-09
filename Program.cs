@@ -7,6 +7,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//validacion para los CORS
+var corsPolicyName = "AllowAngularApp";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: corsPolicyName,
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
+});
+
 //conecion
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -48,6 +62,8 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
+
+app.UseCors(corsPolicyName);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
