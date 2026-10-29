@@ -22,7 +22,13 @@ builder.Services.AddCors(options =>
 });
 
 //conecion
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("Allow Zero DateTime", StringComparison.OrdinalIgnoreCase))
+{
+    connectionString = connectionString.TrimEnd(';') + ";Allow Zero DateTime=True;Convert Zero DateTime=True;";
+}
 
 //token
 var jwtSettings = builder.Configuration.GetSection("Jwt");

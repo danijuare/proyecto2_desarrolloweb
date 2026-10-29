@@ -31,7 +31,7 @@ namespace proyecto_2_desarrollo_web.Controllers
                     id_diagnostico = a.IdDiagnostico,
                     descripcion = a.Descripcion,
                     id_estado = a.IdEstado,
-                    nombre_estado = a.IdEstadoNavigation.Nombre,
+                    nombre_estado = a.IdEstadoNavigation != null ? a.IdEstadoNavigation.Nombre : string.Empty,
                     id_usuario_autoriza = a.IdUsuarioAutoriza,
                     usuario_autoriza = a.IdUsuarioAutorizaNavigation != null
                         ? $"{a.IdUsuarioAutorizaNavigation.Nombre} {a.IdUsuarioAutorizaNavigation.Apellido}".Trim()
@@ -68,7 +68,7 @@ namespace proyecto_2_desarrollo_web.Controllers
                 id_diagnostico = accion.IdDiagnostico,
                 descripcion = accion.Descripcion,
                 id_estado = accion.IdEstado,
-                nombre_estado = accion.IdEstadoNavigation.Nombre,
+                nombre_estado = accion.IdEstadoNavigation != null ? accion.IdEstadoNavigation.Nombre : string.Empty,
                 id_usuario_autoriza = accion.IdUsuarioAutoriza,
                 usuario_autoriza = accion.IdUsuarioAutorizaNavigation != null
                     ? $"{accion.IdUsuarioAutorizaNavigation.Nombre} {accion.IdUsuarioAutorizaNavigation.Apellido}".Trim()
@@ -88,21 +88,18 @@ namespace proyecto_2_desarrollo_web.Controllers
         [HttpPost]
         public async Task<ActionResult<AccionReparacionResponseDto>> CreateAccionReparacion([FromBody] AccionReparacionCreateDto dto)
         {
-            // Validar existencia del diagnóstico
             var diagnosticoExiste = await _context.Diagnosticos.AnyAsync(d => d.IdDiagnostico == dto.id_diagnostico);
             if (!diagnosticoExiste)
             {
                 return BadRequest(new { mensaje = "El diagnóstico especificado no existe." });
             }
 
-            // Validar existencia del estado de la acción
             var estadoExiste = await _context.EstadosAccions.AnyAsync(e => e.IdEstado == dto.id_estado);
             if (!estadoExiste)
             {
                 return BadRequest(new { mensaje = "El estado de acción especificado no existe." });
             }
 
-            // Validar existencia del usuario autorizador (si aplica)
             if (dto.id_usuario_autoriza.HasValue)
             {
                 var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.IdUsuario == dto.id_usuario_autoriza.Value);
@@ -146,21 +143,18 @@ namespace proyecto_2_desarrollo_web.Controllers
                 return NotFound(new { mensaje = "La acción de reparación a actualizar no existe." });
             }
 
-            // Validar existencia del diagnóstico
             var diagnosticoExiste = await _context.Diagnosticos.AnyAsync(d => d.IdDiagnostico == dto.id_diagnostico);
             if (!diagnosticoExiste)
             {
                 return BadRequest(new { mensaje = "El diagnóstico especificado no existe." });
             }
 
-            // Validar existencia del estado de la acción
             var estadoExiste = await _context.EstadosAccions.AnyAsync(e => e.IdEstado == dto.id_estado);
             if (!estadoExiste)
             {
                 return BadRequest(new { mensaje = "El estado de acción especificado no existe." });
             }
 
-            // Validar existencia del usuario autorizador (si aplica)
             if (dto.id_usuario_autoriza.HasValue)
             {
                 var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.IdUsuario == dto.id_usuario_autoriza.Value);
